@@ -1,245 +1,116 @@
 # CHURN_SIGHT
 
-Customer churn analytics system for telecommunications companies to analyze customer data and identify churn patterns.
+CHURN_SIGHT is a customer churn prediction and model experimentation project for the Telco customer churn dataset. It includes a reusable feature-preparation pipeline, baseline and imbalance-aware classifiers, business-cost-based evaluation, and experiment tracking with MLflow.
 
-## Project Overview
+## Current project stage
 
-CHURN_SIGHT is a data analytics project that helps telecommunications companies:
-- **Load and Process Data**: Import customer data from CSV to database
-- **Analyze Churn Patterns**: Understand why customers leave through detailed analytics
-- **Generate Reports**: Export analytics results for further analysis
+The repository currently supports local data preparation and model experimentation. It does not currently include a web dashboard, deployed prediction API, or a database ingestion application.
 
-### Current Features
-- Automated data pipeline from CSV to SQLite database
-- Database table creation with proper schema
-- Basic churn analytics and reporting
-- Export of analytics results to CSV files
+Implemented capabilities:
 
-## Project Structure
+- Cleans the Telco churn data, engineers customer features, and creates stratified train/test datasets.
+- Trains and evaluates Logistic Regression and Random Forest variants, including class weighting and SMOTE.
+- Tunes XGBoost and LightGBM models with stratified cross-validation and selects probability thresholds using configurable false-negative and false-positive costs.
+- Logs experiment metrics and model artifacts to MLflow.
+- Compares Random Forest variants and produces evaluation plots and a Markdown report.
 
-```
+## Repository layout
+
+```text
 CHURN_SIGHT/
 ├── data/
-│   ├── raw/                   # Raw data files
-│   │   └── Telco_customer_churn.csv
-│   └── processed/             # Processed data and database
-│       └── churn.db
+│   ├── raw/                         # Input dataset (not tracked by Git)
+│   └── processed/                   # Generated CSV files (not tracked by Git)
 ├── src/
-│   └── data/                  # Data processing scripts
-│       └── load_to_db.py
-└── README.md                  # This file
+│   ├── archive/
+│   │   └── clean_data.py            # Earlier, machine-specific pipeline
+│   ├── features/
+│   │   └── build_features.py        # Current cleaning and feature pipeline
+│   └── models/
+│       ├── model_utils.py           # Shared data loading and evaluation helpers
+│       ├── train_model.py           # Random Forest baseline
+│       ├── train_logistic.py        # Class-balanced Logistic Regression
+│       ├── train_rf_baseline.py     # Default and class-balanced Random Forests
+│       ├── train_rf_smote.py        # Random Forest with SMOTE
+│       ├── train_gradient_boosting.py # Tuned XGBoost and LightGBM
+│       └── evaluate_models.py       # Random Forest comparison, plots, and report
+├── requirements.txt                 # Dependency list (currently empty)
+└── README.md
 ```
 
-## Configuration
+## Requirements
 
-The project uses exact file paths in `src/data/load_to_db.py`. You need to customize these paths to match your local directory structure:
-
-**Current paths in the script:**
-- CSV file: `C:\Users\Deepak Kumar\CHURN_SIGHT\data\raw\Telco_customer_churn.csv`
-- Database: `C:\Users\Deepak Kumar\CHURN_SIGHT\data\processed\churn.db`
-- Output files: `C:\Users\Deepak Kumar\CHURN_SIGHT\data\processed\`
-
-**To customize for your system:**
-1. Open `src/data/load_to_db.py`
-2. Find the path variables at the top of the script
-3. Replace the paths with your actual file locations
-4. Ensure you use double backslashes for Windows paths (e.g., `C:\\Users\\YourName\\Project\\data\\...`)
-
-**Path variables to modify:**
-- `csv_path`: Path to the input CSV file
-- `db_path`: Path to the SQLite database file
-- Output CSV paths for analytics results
-
-## Setup Instructions
-
-### Step 1: Prerequisites
-
-Ensure you have Python 3.14 or higher installed. Check your Python version:
-```bash
-python --version
-```
-
-If you have multiple Python versions, find your Python 3.14 path:
-```bash
-where python  # On Windows
-which python   # On Linux/Mac
-```
-
-### Step 2: Install Required Packages
-
-Install all required Python packages using pip:
+- Python 3.10 or newer
+- scikit-learn 1.3 or newer (`TargetEncoder` is used by the feature pipeline)
+- The Python packages used by the current scripts:
 
 ```bash
-pip install pandas numpy scikit-learn xgboost lightgbm imbalanced-learn shap mlflow fastapi uvicorn streamlit sqlalchemy openpyxl xlsxwriter requests pytest docker
+python -m pip install pandas numpy "scikit-learn>=1.3" imbalanced-learn mlflow xgboost lightgbm matplotlib tabulate
 ```
 
-If you need to use a specific Python interpreter:
-```bash
-python -m pip install pandas numpy scikit-learn xgboost lightgbm imbalanced-learn shap mlflow fastapi uvicorn streamlit sqlalchemy openpyxl xlsxwriter requests pytest docker
+The repository's `requirements.txt` is currently empty; the command above installs the dependencies directly.
+
+## Data
+
+Obtain the Telco customer churn dataset separately and place the CSV here:
+
+```text
+data/raw/Telco_customer_churn.csv
 ```
 
-Replace `python` with your specific Python path if needed (e.g., `python3.14` or full path to your Python executable).
+The dataset is not included in this repository. The feature pipeline expects the Telco dataset columns used in `src/features/build_features.py`, including `Churn Value`, `Total Charges`, `Monthly Charges`, `Tenure Months`, service details, contract, payment method, city, and ZIP code.
 
-### Step 3: Verify Installation
+## Prepare the data
 
-Test that all packages are installed correctly by running the data loading script:
-
-```bash
-cd src/data
-python load_to_db.py
-```
-
-Or from the project root:
-```bash
-python src/data/load_to_db.py
-```
-
-Expected output:
-- Data frame information display
-- Database creation confirmation
-- Churn analytics summary
-
-### Step 4: Run Data Pipeline
-
-First, ensure the required directories exist:
-```bash
-mkdir -p data/processed
-```
-
-Then navigate to the src/data directory and run the script:
+Run commands from the repository root so the relative data paths resolve correctly:
 
 ```bash
-cd src/data
-python load_to_db.py
+python src/features/build_features.py
 ```
 
-The data pipeline performs the following steps:
-1. **Data Loading**: Reads customer data from CSV file
-2. **Database Setup**: Creates SQLite database and imports data
-3. **Table Creation**: Sets up customers, predictions, and retention_actions tables
-4. **Data Verification**: Validates data import with sample queries
-5. **Analytics Generation**: Runs churn analysis queries
-6. **Results Export**: Saves analytics results to CSV files
+The pipeline writes the cleaned dataset and stratified, encoded, scaled train/test splits to `data/processed/`:
 
-### Step 5: Verify Database
+- `cleaned_churn.csv`
+- `X_train.csv` and `X_test.csv`
+- `y_train.csv` and `y_test.csv`
 
-Check that the database was created successfully:
-```bash
-# Navigate to data/processed directory
-cd data/processed
+These generated files are ignored by Git.
 
-# Check for churn.db file (Windows)
-dir churn.db
+## Train and evaluate models
 
-# Or on Linux/Mac
-ls churn.db
-```
-
-## Usage
-
-### Running the Data Pipeline
-
-Navigate to the src/data directory and run the data loading script:
+Run one of the following from the repository root after preparing the data:
 
 ```bash
-cd src/data
-python load_to_db.py
+python src/models/train_model.py
+python src/models/train_logistic.py
+python src/models/train_rf_baseline.py
+python src/models/train_rf_smote.py
+python src/models/train_gradient_boosting.py
+python src/models/evaluate_models.py
 ```
 
-Or from the project root:
+`train_gradient_boosting.py` runs grid searches and cross-validation for both XGBoost and LightGBM, so it may take substantially longer than the baseline scripts. `evaluate_models.py` compares default, class-balanced, and SMOTE Random Forests and writes plots and a report under `reports/`.
+
+The scripts use MLflow to record experiments. Most scripts store tracking data in the root-level `mlflow.db` SQLite database; `train_rf_baseline.py` instead stores runs in the `mlruns/` file-based store. To view the SQLite-tracked experiments, start the MLflow UI from the repository root:
+
 ```bash
-python src/data/load_to_db.py
+mlflow ui --backend-store-uri sqlite:///mlflow.db
 ```
 
-If you need to use a specific Python interpreter:
+For the file-based runs from `train_rf_baseline.py`, use:
+
 ```bash
-cd src/data
-python3 load_to_db.py
+mlflow ui --backend-store-uri ./mlruns
 ```
 
-## Data Schema
+Then open the URL printed by MLflow (normally `http://127.0.0.1:5000`).
 
-### Customers Table
-- **CustomerID**: Unique customer identifier
-- **Demographics**: Gender, Senior Citizen, Partner, Dependents
-- **Services**: Phone, Internet, Streaming services
-- **Contract**: Contract type, Payment method, Billing
-- **Charges**: Monthly and Total charges
-- **Churn Data**: Churn Label, Churn Value, Churn Score, Churn Reason
+## Evaluation and assumptions
 
-### Predictions Table
-- **customer_id**: Foreign key to customers table
-- **churn_probability**: ML model prediction score
-- **risk_label**: Risk category (High/Medium/Low)
-- **timestamp**: Prediction timestamp
+The model utilities report accuracy, precision, recall, F1, and ROC-AUC where supported. The model comparison and gradient-boosting scripts also calculate business cost using the assumptions `COST_FN = 500` and `COST_FP = 50` in their source. These are example cost weights; adjust them to reflect the intended business use before interpreting cost-based results. Model performance depends on the dataset and environment and is not guaranteed by this repository.
 
-### Retention Actions Table
-- **prediction_id**: Foreign key to predictions table
-- **action**: Recommended retention action
-- **reason**: Justification for the action
+## Notes
 
-## Analytics Overview
-
-The system currently provides the following analytics:
-
-1. **Overall Churn Summary**: Total customers, churn rate, revenue loss
-2. **Churn by Contract**: Analysis across contract types
-3. **Churn by Payment Method**: Payment method impact on retention
-4. **Customer Profiles**: Comparison of churned vs retained customers
-
-### Sample Analytics Output
-
-**Overall Churn Summary:**
-- Total Customers: 7,043
-- Total Churned: 1,869
-- Churn Rate: 26.54%
-- Monthly Revenue Loss: $139,130.85
-
-**Churn by Contract:**
-- Month-to-month: 42.71% churn rate
-- One year: 11.27% churn rate
-- Two year: 2.83% churn rate
-
-**Churn by Payment Method:**
-- Electronic check: 45.29% churn rate
-- Mailed check: 19.11% churn rate
-- Bank transfer (automatic): 16.71% churn rate
-- Credit card (automatic): 15.24% churn rate
-
-## Troubleshooting
-
-### Python Version Issues
-If you encounter module import errors, ensure you're using Python 3.14 or higher:
-```bash
-python --version
-python3 --version
-```
-
-### Package Installation Issues
-If pip install fails, try upgrading pip first:
-```bash
-python -m pip install --upgrade pip
-```
-
-### Database Connection Issues
-Ensure the data/processed directory exists:
-```bash
-# Windows
-mkdir data\processed
-
-# Linux/Mac
-mkdir -p data/processed
-```
-
-## Future Enhancements
-
-- [ ] Implement feature engineering pipeline
-- [ ] Train ML models for churn prediction
-- [ ] Build interactive dashboard
-- [ ] Create REST API for model deployment
-- [ ] Add automated testing
-- [ ] Set up MLflow for experiment tracking
-
-## License
-
-This project is for educational and demonstration purposes.
+- `data/`, `reports/`, local MLflow stores, virtual environments, and environment files are excluded from Git.
+- `src/archive/clean_data.py` is an earlier pipeline and contains a machine-specific absolute input path. Use `src/features/build_features.py` for the current portable pipeline.
+- This project is an experimentation codebase; it does not currently provide a production deployment workflow.
